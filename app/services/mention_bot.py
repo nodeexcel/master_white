@@ -95,7 +95,7 @@ def reply_update_mention_tweets():
             text = mention["text"]
             is_processed = mention["is_processed"]
 
-            if is_processed != True:
+            if not is_processed:
                 print(f"Processing tweet {tweet_id} with text: {text}")
                 response, reply_text = reply_mentions_tweet(
                     client=x_client,
