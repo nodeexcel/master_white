@@ -25,7 +25,7 @@ def start_bot_service():
             handler.process_mentions()
             # Process messages from queue
             consumer.message_queue.consume_messages(consumer.process_mention)
-            time.sleep(30)  # Wait before next check
+            time.sleep(1800)  # Changed from 30 to 1800 seconds (30 minutes)
         except Exception as e:
             logger.error(f"Error in bot service: {e}")
             time.sleep(15)  # Wait before retry
