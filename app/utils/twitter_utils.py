@@ -6,6 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def create_x_client(config):
     """
     Create the Twitter Client
@@ -18,7 +19,8 @@ def create_x_client(config):
         access_token_secret=config.X_ACCESS_TOKEN_SECRET,
     )
 
-def fetch_mentions(client: object, user_id: int):
+
+def fetch_mentions(client: object, user_id: int, since_id: int):
     """
     return the user's mentions info and their comment
     """
@@ -26,23 +28,24 @@ def fetch_mentions(client: object, user_id: int):
         time_window_minutes = Config.TIME_WINDOW_MINUTES
         end_time = datetime.datetime.now()
         start_time = end_time - datetime.timedelta(minutes=time_window_minutes)
-        
+
         # Convert to ISO 8601 format (e.g., 2023-02-22T10:15:00Z)
-        start_time_str = start_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-        end_time_str = end_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-        
+        start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_time_str = end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
         response = client.get_users_mentions(
             id=user_id,  # Ensure clean integer ID
-            tweet_fields=['created_at', 'text', 'author_id'],
+            tweet_fields=["created_at", "text", "author_id"],
             expansions=[
-                'author_id',
-                'in_reply_to_user_id',
-                'referenced_tweets.id',
-                'referenced_tweets.id.author_id'
+                "author_id",
+                "in_reply_to_user_id",
+                "referenced_tweets.id",
+                "referenced_tweets.id.author_id",
             ],
             max_results=10,
             start_time=start_time_str,
-            end_time=end_time_str
+            end_time=end_time_str,
+            since_id=since_id,
         )
         return response
 
@@ -58,6 +61,7 @@ def fetch_mentions(client: object, user_id: int):
         logger.error("Exception occurred in get_users_mentions_info: %s", e)
         return None
 
+
 def store_mentions_data(mentions_data: list, collection):
     if not mentions_data:
         return
@@ -67,6 +71,7 @@ def store_mentions_data(mentions_data: list, collection):
             doc = {
                 "tweet_id": tweet_id,
                 "text": tweet.text,
+                "created_at": tweet.created_at,
                 "is_processed": False,
                 "reply_text": None,
             }
@@ -75,23 +80,37 @@ def store_mentions_data(mentions_data: list, collection):
         else:
             print(f"Tweet {tweet_id} already exists in DB.")
 
+
 def reply_mentions_tweet(client, tweet_id, user_text, openai_client):
     """Handle the complete reply process"""
     try:
         reply_text = generate_unique_response(openai_client, user_text)
         if not reply_text:
-            return False, None           
-                    
-        response = client.create_tweet(
-            in_reply_to_tweet_id=tweet_id,
-            text=reply_text
-        )
+            return False, None
+
+        response = client.create_tweet(in_reply_to_tweet_id=tweet_id, text=reply_text)
         logger.info(f"Successfully replied to tweet {tweet_id} and response {response}")
         return True, reply_text
-        
+
     except tweepy.errors.Forbidden as e:
         logger.error(f"403 Forbidden error: {e}")
         return False, None
     except Exception as e:
         logger.error(f"Error replying to tweet {tweet_id}: {e}")
         return False, None
+
+
+def get_last_processed_tweet_id(collection):
+    """
+    Retrieves the tweet_id of the most recently processed tweet.
+    This assumes your documents include a "processed_at" or "created_at" field.
+    If not, you might sort by tweet_id if your IDs are consistently increasing.
+    """
+    last_tweet = collection.find_one(
+        {"is_processed": True},
+        sort=[('created_at', -1)]
+        # sort=[("tweet_id", -1)],  # Sort in descending order to get the latest
+    )
+    if last_tweet:
+        return last_tweet.get("tweet_id")
+    return None
