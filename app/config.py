@@ -10,7 +10,7 @@ class Config:
     # Twitter API credentials
     # X_USER_ID = int(os.getenv("X_USER_ID"))
     
-    X_USER_ID = os.getenv("X_USER_ID", 1892103401103818753).strip().replace('"', '').replace("'", "")
+    X_USER_ID = os.getenv("X_USER_ID").strip().replace('"', '').replace("'", "")
     if X_USER_ID:
         try:
             # Clean the value by removing extra spaces and quotes
