@@ -1,133 +1,85 @@
 import tweepy
 # from .config import Config
 from app.config import Config
-import schedule
 from app.utils.twitter_utils import (
-    fetch_mentions,
-    store_mentions_data,
-    reply_mentions_tweet,
     create_x_client,
-    
+    send_direct_message,
+    reply_to_tweet
 )
-from app.utils.common_utils import create_openai_client
-from app import mongo_client
+from app.utils.common_utils import create_openai_client, generate_response
+from app.utils.queue_handler import MessageQueue
+from app.utils.prompt_handler import is_dog_related
+from app.database import mongo_client
 import datetime
-import time
 import logging
+import json
+from app.utils.rate_limiter import RateLimiter
+import time
 
-logger = logging.getLogger(__name__,)
+logger = logging.getLogger(__name__)
 
-x_client = create_x_client(Config)
-openai_client = create_openai_client(Config)
-
-# Access database and collection
-mention_collection = mongo_client.db['mentions']
-print("mention_colect", mention_collection)
-
-# def fetch_and_store_mentions():
-#     try:
-#         user_id = Config.X_USER_ID
-#         if not user_id or not isinstance(user_id, int):
-#             logger.error(f"Invalid X_USER_ID: {user_id}. Must be a valid integer.")
-#             return
-           
-#         # user_id=1892103401103818753
-#         logger.debug(f"Fetching mentions for user_id: {user_id}")
-#         mentions = fetch_mentions(client=x_client, user_id=user_id)
-        
-#         print("mention data", mentions)
-        
-#         print("only data", mentions.data)
-#  # Check if 'mentions' is a Response object (with a .data attribute) or a plain list.
-#         if not mentions:
-#             logger.error("Failed to fetch mentions - no data returned")
-#             return
-
-#         if isinstance(mentions, list):
-#             data = mentions
-#         elif hasattr(mentions, "data"):
-#             data = mentions.data
-#         else:
-#             logger.error("Unexpected type returned from fetch_mentions")
-#             return
-
-#         if data:
-#             logger.info("Storing Data in mongo db")
-#             print("storing mention data")
-#             store_mentions_data(mentions_data=data, collection=mention_collection)
-#         else:
-#             print("No new mentions found.")
-#     except Exception as e:
-#         print(f"Error fetching mentions: {e}")
-
-
-def fetch_and_store_mentions():
-    try:
-        user_id = Config.X_USER_ID
-        if not user_id or not isinstance(user_id, int):
-            logger.error("Invalid X_USER_ID: %s. Must be a valid integer.", user_id)
-            return
-           
-        logger.debug("Fetching mentions for user_id: %s", user_id)
-        mentions = fetch_mentions(client=x_client, user_id=user_id)
-        if not mentions:
-            logger.error("Failed to fetch mentions – no data returned")
-            return
-
-        # If the response has a .data attribute, extract it; otherwise assume it's already a list.
-        data = mentions.data if hasattr(mentions, "data") else mentions
-        if not data:
-            logger.info("No new mentions found.")
-            return
-
-        logger.info("Storing %d tweet(s) in MongoDB.", len(data))
-        store_mentions_data(mentions_data=data, collection=mention_collection)
-    except Exception as e:
-        logger.error("Error fetching mentions: %s", e)
-
-
-
-def reply_update_mention_tweets():
-    try:
-        unprocessed_mentions = mention_collection.find({"is_processed": False})
-        for mention in unprocessed_mentions:
-            tweet_id = mention["tweet_id"]
-            text = mention["text"]
-            is_processed = mention["is_processed"]
-
-            if is_processed != True:
-                print(f"Processing tweet {tweet_id} with text: {text}")
-                response, reply_text = reply_mentions_tweet(
-                    client=x_client,
-                    tweet_id=tweet_id,
-                    user_text=text,
-                    openai_client=openai_client,
-                )
-                print("update_mention_response", response)
-                if response:
-                    mention_collection.update_one(
-                        {"tweet_id": tweet_id},
-                        {"$set": {"is_processed": True, "reply_text": str(reply_text)}},
-                    )
-                    print(
-                        f"Successfully processed and replied to tweet {tweet_id} with reply_text: {reply_text}"
-                    )
-                else:
-                    print(f"Failed to reply to tweet {tweet_id}.")
-
+class MentionConsumer:
+    def __init__(self):
+        self.x_client = create_x_client(Config)
+        self.openai_client = create_openai_client(Config)
+        self.message_queue = MessageQueue()
+        self.rate_limiter = RateLimiter(max_requests=5, time_window=240)
+        self.conversation_collection = mongo_client.db['conversations']
+    
+    def process_mention(self, ch, method, properties, body):
+        """Process mentions from the queue"""
+        try:
+            mention_data = json.loads(body)
+            author_id = mention_data.get("author_id")
+            tweet_id = mention_data.get("tweet_id")
+            text = mention_data.get("text")
+            
+            # Check if we've already processed this mention
+            existing_mention = self.conversation_collection.find_one({"tweet_id": tweet_id})
+            if existing_mention is not None:
+                logger.info(f"Mention {tweet_id} already processed")
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
+            
+            if not self.rate_limiter.can_proceed(author_id):
+                logger.warning(f"Rate limit exceeded for user {author_id}")
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+                return
+            
+            # Generate and send the reply
+            success, reply_text = reply_to_tweet(
+                client=self.x_client,
+                tweet_id=tweet_id,
+                user_text=text,
+                openai_client=self.openai_client
+            )
+            
+            if success:
+                self.conversation_collection.insert_one({
+                    "user_id": author_id,
+                    "tweet_id": tweet_id,
+                    "query": text,
+                    "response": reply_text,
+                    "timestamp": datetime.datetime.now(),
+                    "is_dog_related": is_dog_related(text),
+                    "tweet_replied": success
+                })
+                logger.info(f"Successfully processed mention {tweet_id}")
+                ch.basic_ack(delivery_tag=method.delivery_tag)
             else:
-                print(
-                    f"Tweet {tweet_id} has already been processed with reply_text {mention['reply_text']}."
-                )
-    except Exception as e:
-        print(f"Error processing mentions reply: {e}")
+                logger.error(f"Failed to process mention {tweet_id}")
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+                
+        except Exception as e:
+            logger.error(f"Error processing mention from queue: {e}")
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
 
-
-def mention_job():
-    """
-    The scheduled job that runs both fetching and processing.
-    """
-    print("Starting scheduled job...")
-    fetch_and_store_mentions()
-    reply_update_mention_tweets()
-    print("Job finished.\n")
+def start_mention_consumer():
+    while True:
+        try:
+            consumer = MentionConsumer()
+            logger.info("Starting message consumer...")
+            consumer.message_queue.consume_messages(consumer.process_mention)
+        except Exception as e:
+            logger.error(f"Error in message consumer: {e}")
+            time.sleep(5)  # Wait before retry
