@@ -1,8 +1,8 @@
 from flask import Flask
 from app.config import Config
-from app.database import init_db
-from app.services.mention_handler import MentionSearchHandler
-from app.services.mention_bot import MentionConsumer
+from app.database import init_db, mongo_client
+from app.Agent.services.mention_handler import MentionSearchHandler
+from app.Agent.services.mention_bot import MentionConsumer
 import threading
 import logging
 import time

@@ -1,7 +1,7 @@
 import tweepy
 import logging
 import time
-from app.utils.common_utils import generate_response
+from app.Agent.utils.common_utils import generate_response
 
 logger = logging.getLogger(__name__)
 

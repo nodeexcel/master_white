@@ -1,19 +1,19 @@
 import tweepy
 # from .config import Config
 from app.config import Config
-from app.utils.twitter_utils import (
+from app.Agent.utils.twitter_utils import (
     create_x_client,
     send_direct_message,
     reply_to_tweet
 )
-from app.utils.common_utils import create_openai_client, generate_response
-from app.utils.queue_handler import MessageQueue
-from app.utils.prompt_handler import is_dog_related
+from app.Agent.utils.common_utils import create_openai_client, generate_response
+from app.Agent.utils.queue_handler import MessageQueue
+from app.Agent.utils.prompt_handler import is_dog_related
 from app.database import mongo_client
 import datetime
 import logging
 import json
-from app.utils.rate_limiter import RateLimiter
+from app.Agent.utils.rate_limiter import RateLimiter
 import time
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 import tweepy
 from app.config import Config
-from app.utils.twitter_utils import create_x_client
-from app.utils.queue_handler import MessageQueue
+from app.Agent.utils.twitter_utils import create_x_client
+from app.Agent.utils.queue_handler import MessageQueue
 from app.database import mongo_client
 import logging
 from datetime import datetime, timedelta

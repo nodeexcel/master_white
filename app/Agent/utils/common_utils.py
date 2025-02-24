@@ -1,5 +1,5 @@
 from openai import OpenAI
-from .prompt_handler import create_prompt, is_dog_related
+from app.Agent.utils.prompt_handler import create_prompt, is_dog_related
 
 def create_openai_client(config):
     return OpenAI(api_key=config.OPENAI_API_KEY)
