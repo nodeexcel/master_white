@@ -15,7 +15,7 @@ class MentionSearchHandler:
         self.client = create_x_client(Config)
         self.message_queue = None
         self.conversation_collection = mongo_client.db['conversations']
-        self.last_check_time = datetime.now(pytz.UTC) - timedelta(minutes=30)  # Look back 5 minutes on startup
+        self.last_check_time = datetime.now(pytz.UTC) - timedelta(minutes=30)  
         self.processed_tweets = set()
         
     def ensure_queue(self):
@@ -95,7 +95,7 @@ def start_search_handler():
     while True:
         try:
             handler.process_mentions()
-            time.sleep(30)  # Check every minute
+            time.sleep(1800)  # Check every minute
         except Exception as e:
             logger.error(f"Error in search handler: {e}")
             time.sleep(15) 

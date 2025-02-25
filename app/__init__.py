@@ -3,6 +3,7 @@ from app.config import Config
 from app.database import init_db, mongo_client
 from app.Agent.services.mention_handler import start_search_handler
 from app.Agent.services.mention_bot import start_mention_consumer
+from app.Influencer import start_influencer
 import threading
 import logging
 import time
@@ -43,6 +44,15 @@ def create_app():
         )
         consumer_thread.start()
         logger.info("Started consumer thread")
+        
+        # Start influencer thread
+        influencer_thread = threading.Thread(
+            target=start_influencer,
+            daemon=True,
+            name='influencer'
+        )
+        influencer_thread.start()
+        logger.info("Started influencer thread")
     
     logger.info("Application startup complete")
     return app
