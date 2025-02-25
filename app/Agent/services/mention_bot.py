@@ -8,7 +8,6 @@ from app.Agent.utils.twitter_utils import (
 )
 from app.Agent.utils.common_utils import create_openai_client, generate_response
 from app.Agent.utils.queue_handler import MessageQueue
-from app.Agent.utils.prompt_handler import is_dog_related
 from app.database import mongo_client
 import datetime
 import logging
@@ -61,7 +60,6 @@ class MentionConsumer:
                     "query": text,
                     "response": reply_text,
                     "timestamp": datetime.datetime.now(),
-                    "is_dog_related": is_dog_related(text),
                     "tweet_replied": success
                 })
                 logger.info(f"Successfully processed mention {tweet_id}")

@@ -1,5 +1,5 @@
 from openai import OpenAI
-from app.Agent.utils.prompt_handler import create_prompt, is_dog_related
+from app.Agent.utils.prompt_handler import create_prompt
 
 def create_openai_client(config):
     return OpenAI(api_key=config.OPENAI_API_KEY)
@@ -8,9 +8,6 @@ def generate_response(openai_client, user_text: str) -> str:
     """Generate appropriate response based on query type"""
     try:
         system_prompt = create_prompt(user_text)
-        
-        if not is_dog_related(user_text):
-            return "🐕 Hi! I'm specialized in dog-related topics. While I'd love to help, I can best assist with questions about dogs, puppies, training, or pet care. Feel free to ask anything about our furry friends!"
         
         completion = openai_client.chat.completions.create(
             model="gpt-4",

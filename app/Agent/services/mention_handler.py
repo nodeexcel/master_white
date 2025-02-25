@@ -95,7 +95,7 @@ def start_search_handler():
     while True:
         try:
             handler.process_mentions()
-            time.sleep(3600)  # Check every minute
+            time.sleep(30)  # Check every minute
         except Exception as e:
             logger.error(f"Error in search handler: {e}")
             time.sleep(15) 
