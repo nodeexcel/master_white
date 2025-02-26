@@ -76,7 +76,7 @@ class PostScheduler:
         
         # Schedule regular posts
         schedule.every(35).minutes.do(self.post_content)
-        schedule.every(1).minutes.do(self.post_image_content)
+        schedule.every(60).minutes.do(self.post_image_content)
         
         while True:
             schedule.run_pending()

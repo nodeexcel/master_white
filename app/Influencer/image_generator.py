@@ -13,20 +13,44 @@ class DogImageGenerator:
     def __init__(self):
         self.openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
         self.image_prompts = {
-            "playful": """Generate a 4K ultra-detailed, hyper-realistic photograph of an adorable cream-colored French Bulldog 
-            with distinctive bat ears and expressive eyes, similar to the reference. Capture the dog in a playful pose on a 
-            plush couch or bed, with soft lighting and natural indoor setting. Ensure the facial features match the reference 
-            image's cute and engaging expression. Add decorative pillows or blankets in the background for a cozy atmosphere.""",
+            "clear_shot": """Create a crystal-clear, professional 4K photograph of a cream-colored French Bulldog:
+            - Full body shot with perfect clarity and definition
+            - Cream-colored coat with natural highlights
+            - Distinctive bat ears standing upright
+            - Large, expressive dark eyes
+            - Sitting position on a clean, simple background
+            - Professional studio lighting for maximum clarity
+            - Ultra-sharp focus across the entire image
+            - No blur or soft focus effects
+            - Captured with a high-end DSLR camera
+            - Every detail should be crisp and visible
+            The image must be perfectly clear and sharp, like a professional pet photography shoot.""",
             
-            "outdoor": """Create a 4K ultra-realistic photograph of a cream French Bulldog, matching the reference image's 
-            facial features and bat ears, enjoying an outdoor adventure. Show the dog exploring a scenic park or garden with 
-            natural sunlight highlighting its cream-colored coat. Maintain the same adorable expression and head tilt as the 
-            reference, while capturing a full-body shot that shows personality.""",
+            "lifestyle_shot": """Generate a high-resolution 4K photograph of a cream French Bulldog in a bright, clear setting:
+            - Full body visible in natural pose
+            - Crisp, clear lighting highlighting every detail
+            - Perfect focus showing fur texture and features
+            - Clean, uncluttered background
+            - Professional camera settings for maximum clarity
+            - Every facial feature clearly visible
+            - Natural body position showing breed standard
+            - Sharp detail from ears to paws
+            - High-end photography equipment look
+            - Studio-quality lighting setup
+            Ensure maximum clarity and sharpness throughout the entire image.""",
             
-            "portrait": """Generate a 4K detailed portrait of a cream French Bulldog, exactly matching the reference image's 
-            facial characteristics - the distinctive bat ears, soulful eyes, and slight head tilt. Capture an up-close shot 
-            that emphasizes the dog's charming expression and unique features. Use soft, natural lighting to highlight the 
-            cream-colored fur and create a warm, engaging atmosphere."""
+            "action_shot": """Create an ultra-clear 4K photograph of a cream French Bulldog in motion:
+            - Freeze-frame clarity capturing every detail
+            - Full body visible in dynamic pose
+            - Sharp focus on entire dog
+            - Bright, even lighting
+            - Clean background without distractions
+            - Professional sports photography style
+            - High shutter speed look
+            - Crystal clear fur detail
+            - Perfect exposure
+            - Every feature perfectly defined
+            The image should look like it was taken by a professional pet photographer with top-tier equipment."""
         }
         
     def generate_image_and_caption(self) -> Dict[str, str]:
@@ -35,20 +59,29 @@ class DogImageGenerator:
             prompt_type = random.choice(list(self.image_prompts.keys()))
             prompt = self.image_prompts[prompt_type]
             
-            # Generate image
+            # Generate image with maximum quality settings
             response = self.openai_client.images.generate(
                 model="dall-e-3",
                 prompt=prompt,
                 n=1,
-                size="1024x1024"
+                quality="hd",
+                size="1024x1024",
+                style="natural"
             )
             
             # Generate matching caption
-            caption_prompt = f"Create a warm, engaging caption for a photo of a French Bulldog {prompt_type} scene. Include relevant emojis and hashtags."
+            caption_prompt = f"""Create an engaging caption for a clear, professional photo of a French Bulldog {prompt_type.replace('_', ' ')}. 
+            The caption should:
+            - Highlight the dog's clear, visible features
+            - Include 2-3 relevant emojis
+            - Add 3-4 trending dog hashtags
+            - Keep under 200 characters
+            - Focus on the quality and clarity of the shot"""
+            
             caption_response = self.openai_client.chat.completions.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are a dog photography expert creating engaging social media captions."},
+                    {"role": "system", "content": "You are a professional pet photographer creating engaging social media captions."},
                     {"role": "user", "content": caption_prompt}
                 ],
                 temperature=0.7,
@@ -68,6 +101,6 @@ class DogImageGenerator:
     def _get_fallback_content(self) -> Dict[str, str]:
         return {
             "image_url": None,
-            "caption": "Just another pawsome day with this adorable Frenchie! 🐾 Living the good life and spreading joy! #FrenchBulldog #DogLife",
+            "caption": "Showing off my Frenchie perfection in crystal clear detail! Every feature from my bat ears to my squishy face captured perfectly 🐾✨ #FrenchBulldog #FrenchieLove #DogLife",
             "type": "fallback"
         } 
