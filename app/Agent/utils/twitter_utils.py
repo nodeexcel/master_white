@@ -7,7 +7,8 @@ logger = logging.getLogger(__name__)
 
 def create_x_client(config):
     """Create the Twitter Client with v2 API"""
-    return tweepy.Client(
+    # Create v2 client
+    client = tweepy.Client(
         bearer_token=config.BEARER_TOKEN,
         consumer_key=config.CONSUMER_KEY,
         consumer_secret=config.CONSUMER_SECRET,
@@ -15,6 +16,23 @@ def create_x_client(config):
         access_token_secret=config.X_ACCESS_TOKEN_SECRET,
         wait_on_rate_limit=True
     )
+    
+    # Create v1 auth
+    auth = tweepy.OAuth1UserHandler(
+        config.CONSUMER_KEY,
+        config.CONSUMER_SECRET,
+        config.X_ACCESS_TOKEN,
+        config.X_ACCESS_TOKEN_SECRET
+    )
+    
+    # Create v1 API for media upload
+    api = tweepy.API(auth)
+    
+    return client, api
+
+def create_x_auth(config):
+    """Create Twitter OAuth 2.0 Client"""
+    return tweepy.OAuth2BearerHandler(config.BEARER_TOKEN)
 
 def reply_to_tweet(client, tweet_id: str, user_text: str, openai_client) -> tuple[bool, str]:
     """Reply to a tweet with generated response"""
@@ -80,3 +98,12 @@ def send_direct_message(client, user_id: str, message: str) -> bool:
             return False
     
     return False
+
+def upload_media(api, image_path: str) -> str:
+    """Upload media using Twitter API v1.1"""
+    try:
+        media = api.media_upload(filename=image_path)
+        return media.media_id
+    except Exception as e:
+        logger.error(f"Error uploading media: {e}")
+        raise
